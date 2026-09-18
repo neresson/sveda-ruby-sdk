@@ -8,13 +8,14 @@ Gem::Specification.new do |spec|
   spec.authors = ["Neresson"]
   spec.summary = "Ruby SDK for the Sveda AI sidecar HTTP API"
   spec.description = "Ruby SDK for the Sveda AI sidecar HTTP API (embed tokens, streaming chat, histories)."
-  spec.homepage = "https://github.com/neresson/sveda-ruby-sdk"
+  spec.homepage = "https://sveda.dev/docs/hosts/ruby"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.2.0"
 
   spec.metadata["homepage_uri"] = spec.homepage
-  spec.metadata["source_code_uri"] = spec.homepage
-  spec.metadata["changelog_uri"] = "#{spec.homepage}/blob/main/README.md"
+  spec.metadata["source_code_uri"] = "https://github.com/neresson/sveda-ruby-sdk"
+  spec.metadata["documentation_uri"] = spec.homepage
+  spec.metadata["changelog_uri"] = "https://github.com/neresson/sveda-ruby-sdk/blob/main/README.md"
   spec.metadata["rubygems_mfa_required"] = "true"
 
   spec.files = Dir.chdir(__dir__) do

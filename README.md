@@ -1,6 +1,8 @@
 # sveda-ruby-sdk
 
-Ruby SDK for the [Sveda AI](https://github.com/neresson/sveda) sidecar HTTP API.
+Ruby SDK for the [Sveda](https://sveda.dev) sidecar HTTP API.
+
+Docs: [sveda.dev/docs/hosts/ruby](https://sveda.dev/docs/hosts/ruby)
 
 RubyGems: `sveda-ruby-sdk`
 
