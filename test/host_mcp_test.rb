@@ -1,0 +1,139 @@
+# frozen_string_literal: true
+
+require_relative "test_helper"
+
+class EchoHostTool < Sveda::Host::Tool
+  def name
+    "echo_message"
+  end
+
+  def description
+    "Echo a message back."
+  end
+
+  def input_schema
+    {
+      type: "object",
+      properties: {
+        message: { type: "string", description: "Message to echo" }
+      },
+      required: ["message"]
+    }
+  end
+
+  def mode
+    Sveda::Host::MODE_READ
+  end
+
+  def domain
+    "demo"
+  end
+
+  def handle(arguments)
+    {
+      success: true,
+      data: { message: arguments["message"].to_s }
+    }
+  end
+end
+
+class HostMcpTest < Minitest::Test
+  def test_server_start_session_sends_mcp_fields
+    transport = FakeTransport.new(json: {
+      "token" => "embed-token",
+      "visitor_id" => "rails-playground",
+      "expires_in" => 3600
+    })
+    server = Sveda::Host::Server.new(
+      base_url: "https://sveda.test",
+      host_api_key: "host-secret",
+      mcp_url: "https://app.test/mcp/sveda",
+      transport: transport
+    )
+    server.resolve_tools_using { [EchoHostTool.new] }
+
+    session = server.start_session(visitor_id: "rails-playground")
+
+    assert_equal "embed-token", session[:token]
+    assert_equal "https://app.test/mcp/sveda", transport.requests[0][:payload]["host_mcp_url"]
+    refute transport.requests[0][:payload]["host_mcp_token"].to_s.empty?
+  end
+
+  def test_mcp_requires_authentication
+    server = Sveda::Host::Server.new(base_url: "https://sveda.test", host_api_key: "host-secret")
+    server.resolve_tools_using { [EchoHostTool.new] }
+    app = server.rack_app
+
+    status, = app.call(
+      Rack::MockRequest.env_for(
+        "/mcp/sveda",
+        method: "POST",
+        input: { jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }.to_json
+      )
+    )
+
+    assert_equal 401, status
+  end
+
+  def test_mcp_lists_and_calls_tools
+    server = Sveda::Host::Server.new(
+      base_url: "https://sveda.test",
+      host_api_key: "host-secret",
+      server_name: "Playground Feed",
+      instructions: "Feed tools for the current user."
+    )
+    server.resolve_tools_using { [EchoHostTool.new] }
+    token = server.token_store.mint
+    app = server.rack_app
+
+    init_env = authorized_env(token, {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: Sveda::Host::Server::MCP_PROTOCOL_VERSION,
+        capabilities: {},
+        clientInfo: { name: "test", version: "0.1.0" }
+      }
+    })
+    status, _headers, body = app.call(init_env)
+    assert_equal 200, status
+    init = JSON.parse(body.first)
+    assert_equal "Playground Feed", init.dig("result", "serverInfo", "name")
+    assert_equal "Feed tools for the current user.", init.dig("result", "instructions")
+
+    list_env = authorized_env(token, {
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/list",
+      params: { per_page: 250 }
+    })
+    _status, _headers, list_body = app.call(list_env)
+    list = JSON.parse(list_body.first)
+    names = list.dig("result", "tools").map { |tool| tool["name"] }
+    assert_includes names, "echo_message"
+
+    call_env = authorized_env(token, {
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "echo_message", arguments: { message: "hello" } }
+    })
+    _status, _headers, call_body = app.call(call_env)
+    call = JSON.parse(call_body.first)
+    text = call.dig("result", "content", 0, "text")
+    decoded = JSON.parse(text)
+    assert_equal "hello", decoded.dig("data", "message")
+  end
+
+  private
+
+  def authorized_env(token, payload)
+    Rack::MockRequest.env_for(
+      "/mcp/sveda",
+      method: "POST",
+      "HTTP_AUTHORIZATION" => "Bearer #{token}",
+      input: payload.to_json
+    )
+  end
+end

@@ -10,6 +10,7 @@ require_relative "sveda/http"
 require_relative "sveda/embed"
 require_relative "sveda/chat"
 require_relative "sveda/histories"
+require_relative "sveda/host"
 require_relative "sveda/client"
 
 module Sveda
