@@ -6,8 +6,8 @@ Gem::Specification.new do |spec|
   spec.name = "sveda-ruby-sdk"
   spec.version = Sveda::VERSION
   spec.authors = ["Neresson"]
-  spec.summary = "Ruby SDK for the Sveda AI sidecar HTTP API"
-  spec.description = "Ruby SDK for the Sveda AI sidecar HTTP API (embed tokens, streaming chat, histories)."
+  spec.summary = "Embed a Sveda AI agent from Ruby or Rails. https://sveda.dev/docs/hosts/ruby"
+  spec.description = "Ruby / Rails host SDK for Sveda: embed tokens, streaming chat, and host MCP. Docs: https://sveda.dev/docs/hosts/ruby"
   spec.homepage = "https://sveda.dev/docs/hosts/ruby"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.2.0"
