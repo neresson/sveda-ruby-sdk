@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "json"
+require "rack"
 
 module Sveda
   module Host
