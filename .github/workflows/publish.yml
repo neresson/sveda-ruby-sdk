@@ -24,3 +24,12 @@ jobs:
       - run: gem build sveda-ruby-sdk.gemspec
       - name: Push gem
         uses: rubygems/release-gem@v1
+
+      - name: Trigger sveda SDK compatibility matrix
+        if: ${{ secrets.SVEDA_REPO_DISPATCH_TOKEN != '' }}
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.SVEDA_REPO_DISPATCH_TOKEN }}
+          repository: neresson/sveda
+          event-type: sdk-release
+          client-payload: '{"sdk":"ruby","version":"${{ github.ref_name }}"}'
