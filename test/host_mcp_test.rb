@@ -37,6 +37,20 @@ class EchoHostTool < Sveda::Host::Tool
   end
 end
 
+class DeleteHostTool < EchoHostTool
+  def name
+    "delete_post"
+  end
+
+  def mode
+    Sveda::Host::MODE_DELETE
+  end
+
+  def confirmation
+    "required"
+  end
+end
+
 class HostMcpTest < Minitest::Test
   def test_server_start_session_sends_mcp_fields
     transport = FakeTransport.new(json: {
@@ -112,6 +126,8 @@ class HostMcpTest < Minitest::Test
     list = JSON.parse(list_body.first)
     names = list.dig("result", "tools").map { |tool| tool["name"] }
     assert_includes names, "echo_message"
+    echo = list.dig("result", "tools").find { |tool| tool["name"] == "echo_message" }
+    refute echo["_meta"].key?("confirmation")
 
     call_env = authorized_env(token, {
       jsonrpc: "2.0",
@@ -124,6 +140,24 @@ class HostMcpTest < Minitest::Test
     text = call.dig("result", "content", 0, "text")
     decoded = JSON.parse(text)
     assert_equal "hello", decoded.dig("data", "message")
+  end
+
+  def test_confirmation_meta_is_published_when_required
+    server = Sveda::Host::Server.new(base_url: "https://sveda.test", host_api_key: "host-secret")
+    server.resolve_tools_using { [EchoHostTool.new, DeleteHostTool.new] }
+    token = server.token_store.mint(user_id: "user-1")
+    _status, _headers, list_body = server.rack_app.call(authorized_env(token, {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/list",
+      params: {}
+    }))
+    tools = JSON.parse(list_body.first).dig("result", "tools")
+    echo = tools.find { |tool| tool["name"] == "echo_message" }
+    remove = tools.find { |tool| tool["name"] == "delete_post" }
+    refute echo["_meta"].key?("confirmation")
+    assert_equal "required", remove.dig("_meta", "confirmation")
+    assert_equal "delete", remove.dig("_meta", "mode")
   end
 
   def test_start_session_sends_policy

@@ -61,15 +61,17 @@ module Sveda
 
       def list_tools(user)
         @server.tools(user).map do |tool|
+          meta = {
+            domain: tool.domain,
+            mode: tool.mode
+          }
+          meta[:confirmation] = "required" if tool.respond_to?(:confirmation) && tool.confirmation == "required"
           {
             name: tool.name,
             title: tool.name,
             description: tool.description,
             inputSchema: tool.input_schema,
-            _meta: {
-              domain: tool.domain,
-              mode: tool.mode
-            }
+            _meta: meta
           }
         end
       end

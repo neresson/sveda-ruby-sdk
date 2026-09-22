@@ -27,6 +27,10 @@ module Sveda
         "default"
       end
 
+      def confirmation
+        nil
+      end
+
       def handle(_arguments)
         raise NotImplementedError
       end
