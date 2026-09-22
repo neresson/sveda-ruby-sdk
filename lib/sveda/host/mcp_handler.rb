@@ -60,20 +60,7 @@ module Sveda
       end
 
       def list_tools(user)
-        @server.tools(user).map do |tool|
-          meta = {
-            domain: tool.domain,
-            mode: tool.mode
-          }
-          meta[:confirmation] = "required" if tool.respond_to?(:confirmation) && tool.confirmation == "required"
-          {
-            name: tool.name,
-            title: tool.name,
-            description: tool.description,
-            inputSchema: tool.input_schema,
-            _meta: meta
-          }
-        end
+        @server.mcp_tools(user)
       end
 
       def call_tool(params, user)

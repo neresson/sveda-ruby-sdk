@@ -26,6 +26,7 @@ module Sveda
         @policy_using = nil
         @tools = []
         @mint_token = ->(user = nil) { @token_store.mint(user_id: user_id_for(user)) }
+        @mint_token_custom = false
         @authenticate = ->(token) { @token_store.lookup(token) }
         @authorize = nil
         @after_authenticate = nil
@@ -46,6 +47,7 @@ module Sveda
 
       def mint_token_using(&block)
         @mint_token = block
+        @mint_token_custom = true
       end
 
       def authenticate_using(&block)
@@ -130,6 +132,48 @@ module Sveda
 
       def rack_app
         McpRackHandler.new(self)
+      end
+
+      def mcp_tools(user = nil)
+        tools(user).map do |tool|
+          meta = {
+            domain: tool.domain,
+            mode: tool.mode
+          }
+          meta[:confirmation] = "required" if tool.respond_to?(:confirmation) && tool.confirmation == "required"
+          entry = {
+            name: tool.name,
+            title: tool.name,
+            description: tool.description,
+            inputSchema: tool.input_schema,
+            _meta: meta
+          }
+          entry
+        end
+      end
+
+      def registered_hooks
+        {
+          resolve_tools: !@resolve_tools.nil?,
+          policy: !@policy_using.nil?,
+          authorize: !@authorize.nil?,
+          visitor_id: false,
+          mint_token: @mint_token_custom
+        }
+      end
+
+      def describe(user = nil)
+        authenticated = !user.nil?
+        {
+          schema: "sveda.host/v1",
+          sdk: { language: "ruby", version: Sveda::VERSION },
+          subject: {
+            authenticated: authenticated,
+            policy: authenticated ? policy_for(user) : nil
+          },
+          hooks: registered_hooks,
+          tools: mcp_tools(user)
+        }
       end
 
       private

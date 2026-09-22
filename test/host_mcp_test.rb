@@ -228,6 +228,34 @@ class HostMcpTest < Minitest::Test
     assert_equal ["echo_message"], names
   end
 
+  def test_describe_matches_mcp_tools_list
+    server = Sveda::Host::Server.new(base_url: "https://sveda.test", host_api_key: "host-secret")
+    server.resolve_tools_using { [EchoHostTool.new] }
+    user = { "id" => "user-1" }
+    manifest = server.describe(user)
+    assert_equal "sveda.host/v1", manifest[:schema]
+
+    token = server.token_store.mint(user_id: "user-1")
+    app = server.rack_app
+    list_env = authorized_env(token, {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/list",
+      params: { per_page: 250 }
+    })
+    _status, _headers, list_body = app.call(list_env)
+    listed = JSON.parse(list_body.first).dig("result", "tools").each_with_object({}) do |tool, acc|
+      acc[tool["name"]] = tool
+    end
+
+    manifest[:tools].each do |tool|
+      name = tool[:name]
+      assert_equal listed[name]["description"], tool[:description]
+      assert_equal listed[name]["_meta"]["domain"], tool[:_meta][:domain]
+      assert_equal listed[name]["_meta"]["mode"], tool[:_meta][:mode]
+    end
+  end
+
   private
 
   def authorized_env(token, payload)

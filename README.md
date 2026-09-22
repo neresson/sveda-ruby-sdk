@@ -72,6 +72,15 @@ session = Sveda::Client.start_host_session(
 )
 ```
 
+## Agent introspection
+
+```ruby
+manifest = server.describe(current_user)
+puts JSON.pretty_generate(manifest)
+```
+
+In Rails apps that assign `config.x.sveda_host`, run `bin/rails sveda:tools` (optional `USER=email@example.com`). Playground apps also expose `GET /sveda/tools` when logged in.
+
 ## License
 
 GNU Affero General Public License v3.0. See [LICENSE](LICENSE).
