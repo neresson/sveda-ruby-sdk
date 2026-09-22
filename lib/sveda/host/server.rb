@@ -23,15 +23,21 @@ module Sveda
         }
         @token_store = MemoryTokenStore.new(ttl_seconds: token_ttl_seconds)
         @resolve_tools = nil
+        @policy_using = nil
         @tools = []
-        @mint_token = -> { @token_store.mint }
-        @authenticate = ->(token) { @token_store.valid?(token) }
+        @mint_token = ->(user = nil) { @token_store.mint(user_id: user_id_for(user)) }
+        @authenticate = ->(token) { @token_store.lookup(token) }
         @authorize = nil
         @after_authenticate = nil
+        @current_user = nil
       end
 
       def resolve_tools_using(&block)
         @resolve_tools = block
+      end
+
+      def policy_using(&block)
+        @policy_using = block
       end
 
       def register_tool(tool)
@@ -64,35 +70,60 @@ module Sveda
         @config[:mcp_path]
       end
 
-      def tools
-        @resolve_tools ? Array(@resolve_tools.call) : @tools
+      def tools(user = nil)
+        if @resolve_tools
+          return Array(invoke_resolve_tools(user))
+        end
+
+        @tools
+      end
+
+      def policy_for(user)
+        return nil unless @policy_using
+
+        value = @policy_using.call(user)
+        return nil if value.nil?
+
+        policy = value.to_s.strip
+        policy.empty? ? nil : policy
       end
 
       def authenticate_token(token)
-        @authenticate.call(token)
+        result = @authenticate.call(token)
+        return nil if result.nil? || result == false
+
+        if result == true
+          { "id" => "anonymous" }
+        elsif result.is_a?(Hash)
+          result
+        else
+          { "id" => result.to_s }
+        end
       end
 
-      def authorized?
+      def authorized?(user = nil)
         return true unless @authorize
 
-        @authorize.call != false
+        @authorize.call(user) != false
       end
 
-      def run_after_authenticate
-        @after_authenticate&.call
+      def run_after_authenticate(user = nil)
+        @after_authenticate&.call(user)
       end
 
-      def start_session(visitor_id:, mcp_url: nil)
+      def start_session(visitor_id:, mcp_url: nil, user: nil)
         raise ConfigurationError, "Задайте SVEDA_CLIENT_BASE_URL и SVEDA_CLIENT_HOST_API_KEY" unless configured?
 
+        session_user = user.nil? ? visitor_id : user
         mcp = (mcp_url || self.mcp_url).to_s.strip.sub(%r{/\z}, "")
-        mcp_token = @mint_token.call
+        mcp_token = @mint_token.arity.zero? ? @mint_token.call : @mint_token.call(session_user)
         Sveda::Client.start_host_session(
           base_url: @config[:base_url],
           host_api_key: @config[:host_api_key],
           visitor_id: visitor_id,
           host_mcp_url: mcp.empty? ? nil : mcp,
           host_mcp_token: mcp_token,
+          policy: policy_for(session_user),
           **@client_kwargs
         )
       end
@@ -102,6 +133,24 @@ module Sveda
       end
 
       private
+
+      def invoke_resolve_tools(user)
+        if @resolve_tools.arity.zero?
+          @resolve_tools.call
+        else
+          @resolve_tools.call(user)
+        end
+      end
+
+      def user_id_for(user)
+        return "anonymous" if user.nil?
+
+        if user.is_a?(Hash)
+          (user[:id] || user["id"] || "anonymous").to_s
+        else
+          user.to_s
+        end
+      end
 
       def normalize_path(path)
         value = path.to_s.strip

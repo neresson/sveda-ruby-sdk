@@ -23,7 +23,7 @@ module Sveda
       Histories.new(@transport)
     end
 
-    def self.start_host_session(base_url:, host_api_key:, visitor_id:, host_mcp_url: nil, host_mcp_token: nil, **client_kwargs)
+    def self.start_host_session(base_url:, host_api_key:, visitor_id:, host_mcp_url: nil, host_mcp_token: nil, policy: nil, grants: nil, **client_kwargs)
       origin = base_url.to_s.strip.sub(%r{/\z}, "")
       key = host_api_key.to_s.strip
       if origin.empty? || key.empty?
@@ -34,7 +34,9 @@ module Sveda
       token = client.embed.create_token(
         visitor_id: visitor_id,
         host_mcp_url: host_mcp_url,
-        host_mcp_token: host_mcp_token
+        host_mcp_token: host_mcp_token,
+        policy: policy,
+        grants: grants
       )
       if token.token.empty?
         raise Error, "Sidecar returned an empty embed token."

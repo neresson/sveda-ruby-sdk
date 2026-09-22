@@ -83,7 +83,7 @@ class HostMcpTest < Minitest::Test
       instructions: "Feed tools for the current user."
     )
     server.resolve_tools_using { [EchoHostTool.new] }
-    token = server.token_store.mint
+    token = server.token_store.mint(user_id: "user-1")
     app = server.rack_app
 
     init_env = authorized_env(token, {
@@ -124,6 +124,74 @@ class HostMcpTest < Minitest::Test
     text = call.dig("result", "content", 0, "text")
     decoded = JSON.parse(text)
     assert_equal "hello", decoded.dig("data", "message")
+  end
+
+  def test_start_session_sends_policy
+    transport = FakeTransport.new(json: {
+      "token" => "embed-token",
+      "visitor_id" => "rails-playground",
+      "expires_in" => 3600
+    })
+    server = Sveda::Host::Server.new(
+      base_url: "https://sveda.test",
+      host_api_key: "host-secret",
+      mcp_url: "https://app.test/mcp/sveda",
+      transport: transport
+    )
+    server.resolve_tools_using { [EchoHostTool.new] }
+    server.policy_using { |_user| "agent" }
+
+    session = server.start_session(visitor_id: "rails-playground", user: { "id" => "user-1" })
+
+    assert_equal "embed-token", session[:token]
+    assert_equal "agent", transport.requests[0][:payload]["policy"]
+  end
+
+  def test_tools_call_filters_by_authenticated_user
+    server = Sveda::Host::Server.new(base_url: "https://sveda.test", host_api_key: "host-secret")
+    server.resolve_tools_using do |user|
+      user.is_a?(Hash) && user["id"] == "user-1" ? [EchoHostTool.new] : []
+    end
+    allowed = server.token_store.mint(user_id: "user-1")
+    denied = server.token_store.mint(user_id: "other")
+    app = server.rack_app
+
+    allowed_call = authorized_env(allowed, {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: { name: "echo_message", arguments: { message: "hello" } }
+    })
+    _status, _headers, allowed_body = app.call(allowed_call)
+    assert_equal false, JSON.parse(allowed_body.first).dig("result", "isError")
+
+    denied_call = authorized_env(denied, {
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "echo_message", arguments: { message: "hello" } }
+    })
+    _status, _headers, denied_body = app.call(denied_call)
+    denied_result = JSON.parse(denied_body.first).dig("result")
+    assert_equal true, denied_result["isError"]
+    assert_match(/unknown tool/i, denied_result.dig("content", 0, "text"))
+  end
+
+  def test_zero_arg_resolve_tools_callback_still_works
+    server = Sveda::Host::Server.new(base_url: "https://sveda.test", host_api_key: "host-secret")
+    server.resolve_tools_using { [EchoHostTool.new] }
+    token = server.token_store.mint(user_id: "user-1")
+    app = server.rack_app
+
+    list_env = authorized_env(token, {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/list",
+      params: { per_page: 250 }
+    })
+    _status, _headers, list_body = app.call(list_env)
+    names = JSON.parse(list_body.first).dig("result", "tools").map { |tool| tool["name"] }
+    assert_equal ["echo_message"], names
   end
 
   private

@@ -45,7 +45,8 @@ server = Sveda::Host::Server.new(
   server_name: "My App",
   instructions: "Tools for the current user."
 )
-server.resolve_tools_using { [SearchPostsTool.new] }
+server.resolve_tools_using { |user| [SearchPostsTool.new] }
+server.policy_using { |_user| "agent" }
 
 # Rails routes.rb
 post "/sveda/session", to: "sveda_sessions#create"

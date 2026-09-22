@@ -15,9 +15,10 @@ module Sveda
         return method_not_allowed unless request.post?
 
         token = bearer_token(request)
-        return unauthorized unless @server.authenticate_token(token)
-        return forbidden unless @server.authorized?
-        @server.run_after_authenticate
+        user = @server.authenticate_token(token)
+        return unauthorized if user.nil?
+        return forbidden unless @server.authorized?(user)
+        @server.run_after_authenticate(user)
 
         payload = JSON.parse(request.body.read)
         return bad_request unless payload["jsonrpc"] == "2.0"
@@ -32,9 +33,9 @@ module Sveda
         when "initialize"
           json_rpc(id, initialize_result)
         when "tools/list"
-          json_rpc(id, { tools: list_tools })
+          json_rpc(id, { tools: list_tools(user) })
         when "tools/call"
-          json_rpc(id, call_tool(params))
+          json_rpc(id, call_tool(params, user))
         else
           [202, {}, []]
         end
@@ -58,8 +59,8 @@ module Sveda
         result
       end
 
-      def list_tools
-        @server.tools.map do |tool|
+      def list_tools(user)
+        @server.tools(user).map do |tool|
           {
             name: tool.name,
             title: tool.name,
@@ -73,10 +74,10 @@ module Sveda
         end
       end
 
-      def call_tool(params)
+      def call_tool(params, user)
         name = params["name"].to_s
         arguments = params["arguments"].is_a?(Hash) ? params["arguments"] : {}
-        tool = @server.tools.find { |candidate| candidate.name == name }
+        tool = @server.tools(user).find { |candidate| candidate.name == name }
         return tool_error("unknown tool: #{name}") unless tool
 
         result = tool.handle(arguments)
