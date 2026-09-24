@@ -29,7 +29,7 @@ class LiveSmokeTest < Minitest::Test
       prompt: "compat stream",
       chatId: "sdk-compat-ruby",
       messages: [{ id: "m1", role: "user", content: "compat stream" }]
-    )
+    ).to_a
     refute_empty events
     assert events.any? { |event| contract["streamEvents"].include?(event["type"]) }
 
