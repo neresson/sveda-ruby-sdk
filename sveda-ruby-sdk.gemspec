@@ -9,7 +9,7 @@ Gem::Specification.new do |spec|
   spec.summary = "Embed a Sveda AI agent from Ruby or Rails. https://sveda.dev/docs/hosts/ruby"
   spec.description = "Ruby / Rails host SDK for Sveda: embed tokens, streaming chat, and host MCP. Docs: https://sveda.dev/docs/hosts/ruby"
   spec.homepage = "https://sveda.dev/docs/hosts/ruby"
-  spec.license = "AGPL-3.0-only"
+  spec.license = "Apache-2.0"
   spec.required_ruby_version = ">= 3.2.0"
 
   spec.metadata["homepage_uri"] = spec.homepage

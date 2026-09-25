@@ -83,4 +83,4 @@ In Rails apps that assign `config.x.sveda_host`, run `bin/rails sveda:tools` (op
 
 ## License
 
-GNU Affero General Public License v3.0. See [LICENSE](LICENSE).
+Apache License 2.0. See [LICENSE](LICENSE).
